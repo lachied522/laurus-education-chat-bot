@@ -1,55 +1,20 @@
 """
 This module defines the route that will receive and respond to Whatsapp messages
 """
-import os
+import os 
 
 from typing import Dict, Any
 
 import logging
 
-from requests import Timeout, RequestException
+from fastapi import APIRouter, Request, HTTPException
 
-from fastapi import APIRouter, Request
-
-from services.chat import generate_response
-from services.whatsapp import send_message
+from services.whatsapp import process_whatsapp_message
 
 
-WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION")
-WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-RECIPIENT_WAID = "+61400527849" # TO DO:
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
 
 router = APIRouter()
-
-def log_http_response(response):
-    logging.info(f"Status: {response.status_code}")
-    logging.info(f"Content-type: {response.headers.get('content-type')}")
-    logging.info(f"Body: {response.text}")
-
-
-def process_whatsapp_message(body):
-    wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
-    name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
-
-    message = body["entry"][0]["changes"][0]["value"]["messages"][0]
-    message_body = message["text"]["body"]
-
-    response = generate_response(message_body, wa_id, name)
-
-    data = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": wa_id,
-        "type": "text",
-        "text": {
-            "preview_url": False,
-            "body": response
-        },
-    }
-
-    send_message(data)
-
 
 def is_valid_whatsapp_message(body):
     """
@@ -65,9 +30,55 @@ def is_valid_whatsapp_message(body):
     )
 
 
-@router.post("/webhook")
-def chat(
-    body: Dict[str, Any],
-    request: Request
+def is_status_update(body):
+    return (
+        body.get("entry", [{}])[0]
+        .get("changes", [{}])[0]
+        .get("value", {})
+        .get("statuses")
+    )
+
+@router.get("/webhook")
+def get_webhook(
+    request: Request,
 ):
-    print(body)
+    """
+    This endpoint is for Whatsapp to verify the application's webhook
+    """
+    # parse params from the webhook verification request
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+
+    if mode and token:
+        # check the mode and token sent are correct
+        if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
+            logging.info("WEBHOOK_VERIFIED")
+            # must return challenge from the body as an int type
+            return int(challenge)
+        else:
+            logging.info("VERIFICATION_FAILED")
+            raise HTTPException(status_code=403, detail="Verification failed")
+    else:
+        logging.info("MISSING_PARAMETER")
+        raise HTTPException(status_code=400, detail="Missing parameters")
+
+
+@router.post("/webhook")
+def post_webhook(
+    body: Dict[str, Any],
+):
+    if is_status_update(body):
+        logging.info("Received a WhatsApp status update")
+        return "ok"
+
+    if is_valid_whatsapp_message(body):
+        try:
+            process_whatsapp_message(body)
+
+        except Exception as e:
+            print(e)
+            raise e
+
+    else:
+        raise HTTPException(status_code=400, detail="Not a valid request")

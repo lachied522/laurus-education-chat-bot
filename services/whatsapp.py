@@ -4,17 +4,17 @@ This module handles sending messages via Whatsapp
 import os
 
 import logging
-import json
+
 import requests
+
+from fastapi import HTTPException
 
 from services.chat import generate_response
 
 
-WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION")
+WHATSAPP_API_VERSION = "v18.0"
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-RECIPIENT_WAID = "+61400527849" # TO DO:
-
 
 def log_http_response(response):
     logging.info(f"Status: {response.status_code}")
@@ -34,7 +34,7 @@ def send_message(data):
         response = requests.post(
             url,
             headers=headers,
-            data=json.dumps(data),
+            json=data,
             timeout=10
         )
 
@@ -42,22 +42,25 @@ def send_message(data):
 
     except requests.Timeout:
         logging.error("Timeout occurred while sending message")
-        return jsonify({"status": "error", "message": "Request timed out"}), 408
+        raise HTTPException(status_code=408, detail="Request timed out")
+
     except requests.RequestException as e:  # This will catch any general request exception
         logging.error(f"Request failed due to: {e}")
-        return jsonify({"status": "error", "message": "Failed to send message"}), 500
+        raise HTTPException(status_code=500, detail="Failed to send message")
+
     else:
         # Process the response as normal
         log_http_response(response)
         return response
 
-
 def process_whatsapp_message(body):
+    """
+    Extract fields from request body, generate response, and send reply
+    """
     wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
     name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
 
-    message = body["entry"][0]["changes"][0]["value"]["messages"][0]
-    message_body = message["text"]["body"]
+    message_body = body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
 
     response = generate_response(message_body, wa_id, name)
 
@@ -73,17 +76,3 @@ def process_whatsapp_message(body):
     }
 
     send_message(data)
-
-
-def is_valid_whatsapp_message(body):
-    """
-    Check if the incoming webhook event has a valid WhatsApp message structure.
-    """
-    return (
-        body.get("object")
-        and body.get("entry")
-        and body["entry"][0].get("changes")
-        and body["entry"][0]["changes"][0].get("value")
-        and body["entry"][0]["changes"][0]["value"].get("messages")
-        and body["entry"][0]["changes"][0]["value"]["messages"][0]
-    )

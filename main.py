@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 from services.chat import generate_response
 
+from routes.webhook import router
+
 
 def create_app():
     # ensure env is loaded
@@ -18,7 +20,11 @@ def create_app():
         level=logging.INFO
     )
 
-    return FastAPI()
+    app = FastAPI()
+
+    app.include_router(router)
+
+    return app
 
 app = create_app()
 

@@ -28,3 +28,12 @@ This means that the knowledge base will automatically be updated whenever change
     - everthought.edu.au
     - future.edu.au
 4. Copy the search engine ID and store under GOOGLE_CSE_ID environment variable
+
+
+## Step 6. Configuring Whatsapp callback URL for receiving messages
+
+The final step is to provide Whatsapp with the callback url to forward messages to.
+
+1. In the Meta App Dashboard, go to WhatsApp > Configuration.
+2. Enter the Callback URL, paste the application url followed by /webhook
+3. Enter a verification token. This string is set up by you when you create your webhook endpoint. You can pick any string you like. Make sure to update this in your WHATSAPP_VERIFY_TOKEN environment variable.
