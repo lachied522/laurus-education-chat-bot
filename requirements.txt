@@ -1,6 +1,7 @@
 uvicorn
 fastapi
 python-dotenv
+boto3
 openai
 pydantic
 google-api-python-client

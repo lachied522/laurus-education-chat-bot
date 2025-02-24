@@ -3,6 +3,8 @@ This module handles searching of the knowledge base using Google Custom Search E
 """
 import os
 
+import json
+
 import requests
 
 from openai import OpenAI
@@ -31,95 +33,87 @@ def get_embedding(
             encoding_format="float"
         )
 
-        return res["data"][0]["embedding"]
+        return res.data[0].embedding
     except Exception as e:
         print(f"Could not get embedding for {text}: ", e)
         return None
 
 
+def summarise_search_results(
+    query: str,
+    search_results: list[dict],
+    client: OpenAI = OpenAI(),
+) -> str:
+    system = (
+        "You are part of a team of customer service assistants for Laurus Education, a provider of educational programs to Australian and international students. "
+        + "You will receive a query from another team member which has been used to search Laurus Education's affiliated web sites for information. "
+        + "Your job is to summarise the raw search results tp answer the incoming query. "
+        + "If the answer to the query is not apparent from the search results you should say so. "
+        + "You should also provide a url that the team member should go to for more information."
+        + "Do not use markdown, respond with text only."
+    )
+
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "developer",
+                "content": system
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Query: {query}\n\nSearch results:{json.dumps(search_results)}"
+                )
+            }
+        ]
+    )
+
+    return completion.choices[0].message.content
+
+
 def clean_soup(soup: BeautifulSoup):
-    # remove all script and style elements
+    # remove all script, style, header and fotter elements
     for script in soup(["script", "style", "a", "header", "footer", "nav"]):
         script.extract()
 
     # extract text
     text = soup.get_text()
 
-    return text
-
-
-def split_and_group_text(text: str, min_group_size: int = 50):
-    # split text into paragraphs
+    # remove unnecessary line breaks and return as string
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
 
-    # group paragraphs with neighbours into chunks of reasonable size
-    grouped_paragraphs = []
-    
-    curr = paragraphs[0]
-
-    for paragraph in paragraphs[1:]:
-        if len(curr.split(" ")) + len(paragraph.split(" ")) < min_group_size:
-            curr += " " + paragraph
-        else:
-            grouped_paragraphs.append(curr)
-            curr = paragraph
-
-    if curr:
-        grouped_paragraphs.append(curr)
-    
-    return grouped_paragraphs
+    return "\n".join(paragraphs)
 
 
 def scrape(url):
     try:
         html = requests.get(url).text
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(html, "html.parser")
 
         return clean_soup(soup)
-
-        # break into lines and remove leading and trailing space on each
-        lines = (line.strip() for line in text.splitlines() if len(line)>128)
-        # break multi-headlines into a line each
-        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        # drop blank lines
-        text = '\n'.join(chunk for chunk in chunks if chunk)
-        #split text into chunks of 400 words
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1200,
-            chunk_overlap=20
-        )
-        docs = text_splitter.split_text(text)
-        return [{"text": s, "url": url} for s in docs]
     except Exception as e:
+        print(e)
         return None
 
 
-def scrape_webpages(result: dict):
+def scrape_webpages(results: list[dict]):
     """
     Returns text content of pages return by Google Search query
     """
 
     scraped_results = []
 
-    for item in result["items"]:
+    for item in results:
         url = item["link"]
 
         text = scrape(url)
 
-        print(text)
-
-        if text is not None:
-            text_groups = split_and_group_text(text)
-
-            for group in text_groups:
-                scraped_results.append({
-                    "url": url,
-                    "text": group,
-                })
-
-        break
-
-    print("scraped_results", scraped_results)
+        scraped_results.append({
+            "title": item["title"],
+            "url": url,
+            "text": text,
+        })
 
     return scraped_results
 
@@ -153,17 +147,23 @@ def conduct_text_similarity_search(
 
     query_embedding = get_embedding(query)
 
-    return sorted(chunks, key=lambda x: cosine_similarity(x["embedding"], query_embedding), reverse=True)[:n]
+    sorted_chunks = sorted(chunks_with_embedding, key=lambda x: cosine_similarity(x["embedding"], query_embedding), reverse=True)
+
+    return sorted_chunks[:n]
 
 
-def conduct_search(query: str):
+def conduct_search(
+    query: str,
+    site: str | None = None, # limit results to specific site
+    num: int = 3, # number search results to return
+) -> list[dict]:
     # see Custom Search Engine docs below
     # https://google-api-client-libraries.appspot.com/documentation/customsearch/v1/python/latest/customsearch_v1.cse.html
 
     resource = build("customsearch", "v1", developerKey=GOOGLE_API_KEY).cse()
-    result = resource.list(q=query, cx=GOOGLE_CSE_ID).execute()
+    result = resource.list(q=query, num=num, siteSearch=site, cx=GOOGLE_CSE_ID).execute()
 
-    return result
+    return result["items"][:num]
 
 
 def search_tool(
@@ -176,9 +176,9 @@ def search_tool(
 
     scraped_results = scrape_webpages(search_results)
 
-    print(scraped_results)
+    summary = summarise_search_results(query, scraped_results)
 
-    # return conduct_text_similarity_search(query, scraped_results)
+    return summary
 
 if __name__ == "__main__":
 
