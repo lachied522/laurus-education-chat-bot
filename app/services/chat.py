@@ -14,11 +14,11 @@ from services.storage import get_thread_if_exists, store_thread
 from services.search import search_tool
 
 
-client = OpenAI()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_ASSISTANT_ID = os.getenv("OPENAI_ASSISTANT_ID")
 
-# OPENAI_ASSISTANT_ID = os.getenv("OPENAI_ASSISTANT_ID")
-OPENAI_ASSISTANT_ID = "asst_O7pqqqm3PEr98QlGQZ6VP0oC"
-
+client = OpenAI(api_key=OPENAI_API_KEY)
+logger = logging.getLogger()
 
 def handle_tool_calls(
     run # run object from client.beta.threads.run.create
@@ -26,7 +26,6 @@ def handle_tool_calls(
     tool_outputs = []
 
     if run.required_action:
-        print("tool calls", run.required_action.submit_tool_outputs.tool_calls)
         for tool in run.required_action.submit_tool_outputs.tool_calls:
             try:
                 arguments = json.loads(tool.function.arguments)
@@ -43,7 +42,7 @@ def handle_tool_calls(
                     })
 
             except Exception as e:
-                logging.error("Error handling tool calls: ", e)
+                logger.error("Error handling tool calls: ", e)
 
                 # prompt the model to apologise to the user and direct them to a human
                 tool_outputs.append({
@@ -62,6 +61,7 @@ def run_assistant(thread, name):
     assistant = client.beta.assistants.retrieve(OPENAI_ASSISTANT_ID)
 
     # add user name to thread if it is provided
+    additional_instructions = None
     if name is not None:
         additional_instructions = f"You are now having a conversation with {name}"
 
@@ -71,6 +71,7 @@ def run_assistant(thread, name):
         thread_id=thread.id,
         assistant_id=assistant.id,
         additional_instructions=additional_instructions,
+        timeout=45,
     )
 
     if run.status == "failed":
@@ -79,15 +80,15 @@ def run_assistant(thread, name):
     tool_outputs = handle_tool_calls(run)
 
     if len(tool_outputs) > 0:
-        try:
-            run = client.beta.threads.runs.submit_tool_outputs_and_poll(
-                thread_id=thread.id,
-                run_id=run.id,
-                tool_outputs=tool_outputs
-            )
+        run = client.beta.threads.runs.submit_tool_outputs_and_poll(
+            thread_id=thread.id,
+            run_id=run.id,
+            tool_outputs=tool_outputs,
+            timeout=45,
+        )
 
-        except Exception as e:
-            logging.error("Failed to submit tool outputs: ", e)
+        if run.status == "failed":
+            raise Exception("Submitting tool outputs failed")
 
     messages = client.beta.threads.messages.list(thread_id=thread.id)
 
@@ -104,18 +105,18 @@ def generate_response(
 
     # If a thread doesn't exist, create one and store it
     if thread_id is None:
-        logging.info(f"Creating new thread for {name} with id {_id}")
+        logger.info(f"Creating new thread for {name} with id {_id}")
         thread = client.beta.threads.create()
         store_thread(_id, thread.id)
         thread_id = thread.id
 
     # Otherwise, retrieve the existing thread
     else:
-        logging.info(f"Retrieving existing thread for {name} with id {_id}")
+        logger.info(f"Retrieving existing thread for {name} with id {_id}")
         thread = client.beta.threads.retrieve(thread_id)
 
     try:
-        # user message to thread
+        # add user message to thread
         client.beta.threads.messages.create(
             thread_id=thread_id,
             role="user",
@@ -125,9 +126,12 @@ def generate_response(
         # run the assistant and get the new message
         new_message = run_assistant(thread, name)
 
+        logger.info("User message: ", message_body)
+        logger.info("AI response: ", new_message)
+
         return new_message
-    
+
     except Exception as e:
-        logging.error("Error generating response: ", e)
+        logger.error("Error generating response: ", e)
 
         return "Something went wrong processing your request, please try again later or contact a human for support"

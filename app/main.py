@@ -1,8 +1,15 @@
+"""
+This is the entrypoint to the app. We use the Mangum adapter
+to handle AWS Lambda requests and route them to the corresponding FastAPI route
+"""
+
 import logging
 
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request
+
+from mangum import Mangum
 
 from pydantic import BaseModel
 
@@ -28,6 +35,7 @@ def create_app():
 
 app = create_app()
 
+handler = Mangum(app)
 
 @app.get("/")
 def hello_world():

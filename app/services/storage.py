@@ -1,11 +1,15 @@
 """
 This module handles storing of OpenAI Thread IDs with DynamoDB
 """
+import os
+
 import boto3
 
 
+TABLE_NAME = os.getenv("TABLE_NAME")
+
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("laurus-education-chat-bot-table")
+table = dynamodb.Table(TABLE_NAME)
 
 def get_thread_if_exists(_id: str):
     response = table.get_item(Key={"id": _id})

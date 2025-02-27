@@ -15,9 +15,9 @@ from bs4 import BeautifulSoup
 
 import numpy as np
 
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
-
 
 def get_embedding(
     text: str,
@@ -54,7 +54,7 @@ def summarise_search_results(
     )
 
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o", # must use gpt-4o for the context window
         messages=[
             {
                 "role": "developer",
@@ -178,8 +178,12 @@ def search_tool(
 
     summary = summarise_search_results(query, scraped_results)
 
+    print(query, summary)
+
     return summary
 
-if __name__ == "__main__":
 
-    print(search_tool("What is Laurus Education"))
+if __name__ == "__main__":
+    result = search_tool("What is Laurus Education")
+
+    print(result)

@@ -16,6 +16,8 @@ WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
 
 router = APIRouter()
 
+logger = logging.getLogger()
+
 def is_valid_whatsapp_message(body):
     """
     Check if the incoming webhook event has a valid WhatsApp message structure.
@@ -53,14 +55,14 @@ def get_webhook(
     if mode and token:
         # check the mode and token sent are correct
         if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
-            logging.info("WEBHOOK_VERIFIED")
+            logger.info("WEBHOOK_VERIFIED")
             # must return challenge from the body as an int type
             return int(challenge)
         else:
-            logging.info("VERIFICATION_FAILED")
+            logger.info("VERIFICATION_FAILED")
             raise HTTPException(status_code=403, detail="Verification failed")
     else:
-        logging.info("MISSING_PARAMETER")
+        logger.info("MISSING_PARAMETER")
         raise HTTPException(status_code=400, detail="Missing parameters")
 
 
@@ -69,7 +71,7 @@ def post_webhook(
     body: Dict[str, Any],
 ):
     if is_status_update(body):
-        logging.info("Received a WhatsApp status update")
+        logger.info("Received a WhatsApp status update")
         return "ok"
 
     if is_valid_whatsapp_message(body):
@@ -77,7 +79,7 @@ def post_webhook(
             process_whatsapp_message(body)
 
         except Exception as e:
-            print(e)
+            logger.error("Could not process message: ", e)
             raise e
 
     else:
