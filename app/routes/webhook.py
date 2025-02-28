@@ -40,6 +40,7 @@ def is_status_update(body):
         .get("statuses")
     )
 
+
 @router.get("/webhook")
 def get_webhook(
     request: Request,

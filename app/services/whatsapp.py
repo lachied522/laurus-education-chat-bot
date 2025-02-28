@@ -55,16 +55,25 @@ def send_message(data):
         log_http_response(response)
         return response
 
+
 def process_whatsapp_message(body):
     """
     Extract fields from request body, generate response, and send reply
     """
+    # see Whatsapp payload structure below
+    # https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
     wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
     name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
 
-    message_body = body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+    message = body["entry"][0]["changes"][0]["value"]["messages"][0]
 
-    response = generate_response(message_body, wa_id, name)
+    if message["type"] != "text":
+        logger.info("Non-text message was received")
+        return
+
+    text = message["text"]["body"]
+
+    response = generate_response(text, wa_id, name)
 
     data = {
         "messaging_product": "whatsapp",

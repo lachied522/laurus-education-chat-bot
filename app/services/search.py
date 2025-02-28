@@ -3,6 +3,8 @@ This module handles searching of the knowledge base using Google Custom Search E
 """
 import os
 
+import logging
+
 import json
 
 import requests
@@ -18,6 +20,8 @@ import numpy as np
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+
+logger = logging.getLogger()
 
 def get_embedding(
     text: str,
@@ -178,7 +182,7 @@ def search_tool(
 
     summary = summarise_search_results(query, scraped_results)
 
-    print(query, summary)
+    logger.debug("Searched: ", query, "\n", "Got: ", summary)
 
     return summary
 
