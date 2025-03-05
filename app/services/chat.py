@@ -9,16 +9,42 @@ import logging
 
 from openai import OpenAI
 
-from services.storage import get_thread_if_exists, store_thread
+from services.storage import get_item_if_exists, store_thread, update_thread
 
 from services.search import search_tool
 
 
+# Define constants
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_ASSISTANT_ID = os.getenv("OPENAI_ASSISTANT_ID")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Define the message students will receive when they first message
+# the bot to determine whether they are prospective or existing
+STUDENT_TYPE_MESSAGE = """Hi, thank you for your message. To help me assist you with your query, please confirm whether you are an existing student with Laurus Education. Please reply with \"YES\" or \"NO\""""
+
+
 logger = logging.getLogger()
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+def get_student_type_from_user_message(
+    message: str,
+):
+    """
+    This will determine the student's type from their response to the above message.
+    """
+    message = message.upper().strip()
+
+    if message == "YES":
+        return "existing"
+
+    if message == "NO":
+        return "prospective"
+
+    # if message does not match "YES" or "NO" we will return "unknown"
+    return "unknown"
+
 
 def handle_tool_calls(
     run # run object from client.beta.threads.run.create
@@ -96,40 +122,66 @@ def run_assistant(thread, name):
 
 
 def generate_response(
-    message_body: str,
-    _id: str,
+    message: str,
+    _id: str, # either Whatsapp user id, user's ip address, or any other unique id passed through the /chat endpoint
     name: str | None = None
 ):
-    # Check if there is already a thread_id for the wa_id
-    thread_id = get_thread_if_exists(_id)
+    # Check if there is already a record for the corresponding id
+    record = get_item_if_exists(_id)
 
     # If a thread doesn't exist, create one and store it
-    if thread_id is None:
+    if record is None:
         logger.info(f"Creating new thread for {name} with id {_id}")
         thread = client.beta.threads.create()
+
         store_thread(_id, thread.id)
+
         thread_id = thread.id
+        student_type = None
 
     # Otherwise, retrieve the existing thread
     else:
         logger.info(f"Retrieving existing thread for {name} with id {_id}")
-        thread = client.beta.threads.retrieve(thread_id)
+        thread = client.beta.threads.retrieve(record.get("thread_id"))
 
-    try:
-        # add user message to thread
+        thread_id = thread.id
+        student_type = record.get("student_type")
+
+    # add user message to thread
+    client.beta.threads.messages.create(
+        thread_id=thread_id,
+        role="user",
+        content=message,
+    )
+
+    # If student type has not been determined, send a custom message
+    if student_type is None:
+        # Update student type to "pending" in database
+        update_thread(_id, "pending")
+
+        # Add the bot's response to thread history before returning
         client.beta.threads.messages.create(
             thread_id=thread_id,
-            role="user",
-            content=message_body,
+            role="assistant",
+            content=STUDENT_TYPE_MESSAGE,
         )
 
-        # run the assistant and get the new message
-        new_message = run_assistant(thread, name)
+        return STUDENT_TYPE_MESSAGE
 
-        logger.info("User message: ", message_body)
-        logger.info("AI response: ", new_message)
+    # Determine student type from response and update database
+    if student_type == "pending":
+        student_type = get_student_type_from_user_message(message)
 
-        return new_message
+        update_thread(_id, student_type)
+
+    try:
+        # Run the assistant and get the new message
+        response = run_assistant(thread, name)
+
+        logger.info("User message: ", message)
+        logger.info("AI response: ", response)
+
+        return response
 
     except Exception as e:
         logger.error("Error generating response: ", e)
