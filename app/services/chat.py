@@ -9,9 +9,10 @@ import logging
 
 from openai import OpenAI
 
-from services.storage import get_item_if_exists, store_thread, update_thread
+from services.storage import get_item_if_exists, store_thread as store_thread_in_db, update_thread as update_thread_in_db
 
 from services.search import search_tool
+from services.tools import application_form_tool
 
 
 # Define constants
@@ -46,6 +47,23 @@ def get_student_type_from_user_message(
     return "unknown"
 
 
+def create_and_store_thread(
+    _id: str # primary key to store thread under
+):
+    thread = client.beta.threads.create()
+
+    store_thread_in_db(_id, thread.id)
+
+    return thread
+
+
+def retrieve_thread(
+    thread_id: str
+):
+    thread = client.beta.threads.retrieve(thread_id)
+    return thread.id
+
+
 def handle_tool_calls(
     run # run object from client.beta.threads.run.create
 ):
@@ -56,16 +74,28 @@ def handle_tool_calls(
             try:
                 arguments = json.loads(tool.function.arguments)
 
-                query = arguments.get("query")
+                match tool.function.name:
+                    case "search_knowledge":
+                        query = arguments.get("query")
 
-                if not query:
-                    raise Exception("Query was not found in function arguments")
+                        if not query:
+                            raise ValueError("Argument 'query' was not provided")
 
-                if tool.function.name == "search_knowledge":
-                    tool_outputs.append({
-                        "tool_call_id": tool.id,
-                        "output": search_tool(query)
-                    })
+                        tool_outputs.append({
+                            "tool_call_id": tool.id,
+                            "output": search_tool(query)
+                        })
+
+                    case "get_application_form":
+                        college = arguments.get("college")
+
+                        if not college:
+                            raise ValueError("Argument 'college' was not provided")
+
+                        tool_outputs.append({
+                            "tool_call_id": tool.id,
+                            "output": application_form_tool(college)
+                        })
 
             except Exception as e:
                 logger.error("Error handling tool calls: ", e)
@@ -131,25 +161,29 @@ def generate_response(
 
     # If a thread doesn't exist, create one and store it
     if record is None:
-        logger.info(f"Creating new thread for {name} with id {_id}")
-        thread = client.beta.threads.create()
+        logger.info(f"Creating new thread with id {_id}")
 
-        store_thread(_id, thread.id)
-
-        thread_id = thread.id
+        thread = create_and_store_thread(_id)
         student_type = None
 
     # Otherwise, retrieve the existing thread
     else:
-        logger.info(f"Retrieving existing thread for {name} with id {_id}")
-        thread = client.beta.threads.retrieve(record.get("thread_id"))
+        student_type = record.get("student_type", None)
 
-        thread_id = thread.id
-        student_type = record.get("student_type")
+        try:
+            thread = client.beta.threads.retrieve(record.get("thread_id"))
+
+            logger.info(f"Retrieved existing thread with id {_id}")
+
+        except Exception as e:
+            logger.warning(f"Error retreiving thread with id {_id}, creating new thread instead")
+
+            thread = create_and_store_thread(_id)
+
 
     # add user message to thread
     client.beta.threads.messages.create(
-        thread_id=thread_id,
+        thread_id=thread.id,
         role="user",
         content=message,
     )
@@ -157,11 +191,11 @@ def generate_response(
     # If student type has not been determined, send a custom message
     if student_type is None:
         # Update student type to "pending" in database
-        update_thread(_id, "pending")
+        update_thread_in_db(_id, "pending")
 
         # Add the bot's response to thread history before returning
         client.beta.threads.messages.create(
-            thread_id=thread_id,
+            thread_id=thread.id,
             role="assistant",
             content=STUDENT_TYPE_MESSAGE,
         )
@@ -172,18 +206,18 @@ def generate_response(
     if student_type == "pending":
         student_type = get_student_type_from_user_message(message)
 
-        update_thread(_id, student_type)
+        update_thread_in_db(_id, student_type)
 
     try:
         # Run the assistant and get the new message
         response = run_assistant(thread, name)
 
-        logger.info("User message: ", message)
-        logger.info("AI response: ", response)
+        logger.debug("User message: ", message)
+        logger.debug("AI response: ", response)
 
         return response
 
     except Exception as e:
-        logger.error("Error generating response: ", e)
+        logger.error(f"Error generating response: {e}")
 
         return "Something went wrong processing your request, please try again later or contact a human for support"

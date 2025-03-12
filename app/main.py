@@ -55,6 +55,7 @@ class ChatRequestBody(BaseModel):
     # if not provided, client ip address will be used
     customer_id: str | None = None
 
+
 # this route is for regular chat messages sent from anywhere other than Whatsapp, e.g. the Laurus Education website
 @app.post("/chat")
 def chat(

@@ -7,4 +7,3 @@ openai
 pydantic
 google-api-python-client
 beautifulsoup4
-numpy
