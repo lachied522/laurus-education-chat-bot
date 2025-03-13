@@ -4,19 +4,19 @@ This Customer Service Agent was developed for Laurus Education. Below are instru
 
 ## Prerequisites
 
-1. An OpenAI developer account - 
-2. A Meta developer account — If you don’t have one, you can [create a Meta developer account here](https://developers.facebook.com/).
+1. An OpenAI developer account - If you don't have one you can [create one here](https://auth.openai.com/create-account).
+2. A Meta developer account — If you don’t have one you can [create a Meta developer account here](https://developers.facebook.com/).
 3. A Meta Business app — If you don't have one, you can [learn to create a business app here](https://developers.facebook.com/docs/development/create-an-app/). If you don't see an option to create a business app, select **Other** > **Next** > **Business**.
-4. AWS account and the AWS CLI installed - follow steps at [here](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/prerequisites.html#prerequisites-configure-credentials)
+4. AWS account and the AWS SAM CLI installed (for deploying application to AWS) - follow steps [here](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 
-## Step 0: Get OpenAI API key
+## Step 1: Get OpenAI API key
 
 We will require an OpenAI API key.
 
 1. Go to https://platform.openai.com/api-keys and create a new secret key
 2. Copy and paste the value into template.yaml under OPENAI_API_KEY
 
-## Step 1: Create OpenAI Assistant
+## Step 2: Create OpenAI Assistant
 
 Run the following command to create the OpenAI assistant that will handle chat functionality. This will print the ID of the created assistant to the console.
 
@@ -26,7 +26,7 @@ python .\scripts\assistant.py
 
 Copy and paste the assistant ID into template.yaml under OPENAI_ASSISTANT_ID.
 
-## Step 2. Creating Google Custom Search Engine
+## Step 3. Creating Google Custom Search Engine
 
 Since Laurus Education has many partner colleges with their own domains, we will use a Google Custom Search Engine to act as the agent's knowledge base.
 
@@ -45,7 +45,7 @@ This means that the knowledge base will automatically be updated whenever change
     - future.edu.au
 4. Copy the search engine ID and store under GOOGLE_CSE_ID environment variable
 
-## Step 3. Create Whatsapp App
+## Step 4. Create Whatsapp App
 Whatsapp provides two types of access tokens, a 24-hour one for development and a long-lasting one for production.
 
 Firstly, go to **App settings** > **Basic** and copy and paste the App ID and App secret into template.yaml under WHATSAPP_APP_ID and WHATSAPP_APP_SECRET respectively.
@@ -58,7 +58,7 @@ Secondly, create a long-lasting access token for production:
 4. Select all the permissions (including non-Whatsapp permissions)
 5. Copy and paste the access token into template.yaml under WHATSAPP_ACCESS_TOKEN
 
-Finally, go back to **App Dashboard** >> **Whatsapp** >> **API Setup**. Here you will see a test number that can be used for development. If you wish to test the application copy and paste "Phone number ID" into template.yaml under PHONE_NUMBER_ID. Otherwise, follow the steps to create a Whatsapp business phone number.
+Finally, go back to **App Dashboard** >> **Whatsapp** >> **API Setup**. Here you will see a test number that can be used for development. If you wish to test the application copy and paste "Phone number ID" into template.yaml under PHONE_NUMBER_ID. Otherwise, follow the steps to create a **Whatsapp business phone number**.
 
 Your environment in template.yaml should now look like this:
 
@@ -70,7 +70,7 @@ WHATSAPP_APP_SECRET: **************************
 PHONE_NUMBER_ID: ************** # your business phone number id will go here once you create it
 ```
 
-## Step 4. Deploy to AWS
+## Step 5. Deploy to AWS
 
 We will use the AWS CLI to quickly and programmatically deploy the application.
 
@@ -82,7 +82,7 @@ Once SAM CLI is configued, run the following command to deploy the application t
 sam deploy --guided
 ```
 
-## Step 5. Configuring Whatsapp callback URL for receiving messages
+## Step 6. Configuring Whatsapp callback URL for receiving messages
 
 The final step is to provide Whatsapp with the callback url to forward messages to.
 
@@ -90,7 +90,7 @@ The final step is to provide Whatsapp with the callback url to forward messages 
 2. Enter the Callback URL, paste the application url followed by /webhook
 3. Enter a verification token. This string is set up by you when you create your webhook endpoint. You can pick any string you like. Make sure to update this in your WHATSAPP_VERIFY_TOKEN environment variable.
 
-## Step 6. Increase API Gateway Maximum Integration Timeout
+## Step 7. Increase API Gateway Maximum Integration Timeout
 
 The default timeout for an integration between API Gateway and a Lambda in AWS is 29 seconds, which is too short for this use case. You will have to submit a request to AWS Service Quotas to increase the maximum timeout for the connection between API Gateway and Lambda.
 
@@ -100,3 +100,17 @@ The default timeout for an integration between API Gateway and a Lambda in AWS i
 4. Click "Request an increase at account level" and set the value to 120,000 miliseconds (2 minutes)
 5. Go back to API Gateway and click on Integration Request under the /{proxy+} endpoint
 6. Click Edit and increase the timeout to 120,000 miliseconds
+
+## Step 8. Access Chat Bot
+
+The chat bot will now be accessible by messaging the Whatsapp business number or via post request to the /chat endpoint.
+
+The /chat endpoint accepts a POST request with the following body structure
+
+```
+{
+    "message": "What courses do you offer?",
+    "name": "Lachie", # name of the customer (optional)
+    "customer_id": 123 # unique id for customer to keep track of OpenAI thread
+}
+```

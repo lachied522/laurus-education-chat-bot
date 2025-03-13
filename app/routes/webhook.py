@@ -67,17 +67,22 @@ def get_webhook(
         raise HTTPException(status_code=400, detail="Missing parameters")
 
 
-@router.post("/webhook")
+@router.post(
+    "/webhook",
+    status_code = 200 # Whatsapp will ping this endpoint until it receives a 200 status code
+)
 def post_webhook(
     body: Dict[str, Any],
 ):
     if is_status_update(body):
         logger.info("Received a WhatsApp status update")
-        return "ok"
+        return "OK"
 
     if is_valid_whatsapp_message(body):
         try:
             process_whatsapp_message(body)
+
+            return "OK"
 
         except Exception as e:
             logger.error("Could not process message: ", e)
