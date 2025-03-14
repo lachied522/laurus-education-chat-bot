@@ -161,8 +161,6 @@ def generate_response(
 
     # If a thread doesn't exist, create one and store it
     if record is None:
-        logger.info(f"Creating new thread with id {_id}")
-
         thread = create_and_store_thread(_id)
         student_type = None
 
@@ -172,8 +170,6 @@ def generate_response(
 
         try:
             thread = client.beta.threads.retrieve(record.get("thread_id"))
-
-            logger.info(f"Retrieved existing thread with id {_id}")
 
         except Exception as e:
             logger.warning(f"Error retreiving thread with id {_id}, creating new thread instead")

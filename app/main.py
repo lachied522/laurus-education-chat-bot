@@ -9,10 +9,9 @@ from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request
 
-from mangum import Mangum
-
 from pydantic import BaseModel
 
+from services.storage import configure_storage
 from services.chat import generate_response
 
 from routes.webhook import router
@@ -27,6 +26,13 @@ def create_app():
         level=logging.INFO
     )
 
+    # silence noisy libraries
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # configure storage
+    configure_storage()
+
     app = FastAPI()
 
     app.include_router(router)
@@ -35,7 +41,9 @@ def create_app():
 
 app = create_app()
 
-handler = Mangum(app)
+# Expose app via AWS style handler for Lambda function
+# Don't need this for running on a server
+# handler = Mangum(app)
 
 @app.get("/")
 def hello_world():
