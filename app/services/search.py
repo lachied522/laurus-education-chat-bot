@@ -15,6 +15,9 @@ from googleapiclient.discovery import build
 
 from bs4 import BeautifulSoup
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Define constants
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")

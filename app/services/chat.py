@@ -14,6 +14,10 @@ from services.storage import get_item_if_exists, store_thread as store_thread_in
 from services.search import search_tool
 from services.tools import application_form_tool
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # Define constants
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

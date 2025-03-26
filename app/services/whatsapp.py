@@ -11,6 +11,10 @@ from fastapi import HTTPException
 
 from .chat import generate_response
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")

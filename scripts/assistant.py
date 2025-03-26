@@ -8,6 +8,9 @@ from pydantic import BaseModel, Field
 
 from enum import Enum, auto
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Define constants
 DEFAULT_OPENAI_MODEL = "gpt-4o"

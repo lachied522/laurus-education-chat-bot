@@ -11,6 +11,9 @@ from fastapi import APIRouter, Request, HTTPException
 
 from services.whatsapp import process_whatsapp_message
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
 
