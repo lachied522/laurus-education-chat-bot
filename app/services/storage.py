@@ -11,7 +11,7 @@ import shelve
 # Directory for shelve module
 DIRECTORY = "storage"
 FILE_NAME = "thread_store"
-PATH = f"{DIRECTORY}/${FILE_NAME}"
+PATH = f"{DIRECTORY}/{FILE_NAME}"
 
 
 def configure_storage():
@@ -23,6 +23,8 @@ def configure_storage():
 
 
 def get_item_if_exists(user_id: str):
+    cleanup_old_threads()
+
     with shelve.open(PATH) as store:
         return store.get(user_id, None)
 
@@ -57,11 +59,11 @@ def update_thread(user_id: str, student_type: str):
         }
 
 
-def cleanup():
+def cleanup_old_threads():
     """
-    Remove records where 'updated_at' is more than three months ago
+    OpenAI threads expire after 30 days. Remove records where 'updated_at' is more than 30 days ago
     """
-    three_months_ago = datetime.now() - timedelta(days=90)
+    three_months_ago = datetime.now() - timedelta(days=30)
 
     with shelve.open(PATH, writeback=True) as store:
         keys_to_delete = []

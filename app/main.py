@@ -27,6 +27,7 @@ def create_app():
     )
 
     # silence noisy libraries
+    logging.getLogger("googleapiclient").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 

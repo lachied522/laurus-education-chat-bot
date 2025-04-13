@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 import logging
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 
 from services.whatsapp import process_whatsapp_message
 
@@ -76,20 +76,14 @@ def get_webhook(
 )
 def post_webhook(
     body: Dict[str, Any],
+    background_tasks: BackgroundTasks
 ):
     if is_status_update(body):
         logger.info("Received a WhatsApp status update")
         return "OK"
 
     if is_valid_whatsapp_message(body):
-        try:
-            process_whatsapp_message(body)
-
-            return "OK"
-
-        except Exception as e:
-            logger.error("Could not process message: ", e)
-            raise e
-
+        background_tasks.add_task(process_whatsapp_message, body)
+        return "OK"
     else:
         raise HTTPException(status_code=400, detail="Not a valid request")

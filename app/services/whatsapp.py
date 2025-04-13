@@ -7,8 +7,6 @@ import logging
 
 import requests
 
-from fastapi import HTTPException
-
 from .chat import generate_response
 
 from dotenv import load_dotenv
@@ -19,6 +17,11 @@ load_dotenv()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+
+# Had issues with duplicate messages coming from Whatsapp
+# Keep track of messages being processed in a map
+PROCESSING_MESSAGES: set[str] = set()
+
 
 logger = logging.getLogger()
 
@@ -48,11 +51,11 @@ def send_message(data):
 
     except requests.Timeout:
         logger.error("Timeout occurred while sending message")
-        raise HTTPException(status_code=408, detail="Request timed out")
+        raise Exception("Request timed out")
 
     except requests.RequestException as e:  # This will catch any general request exception
         logger.error(f"Request failed due to: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send message")
+        raise Exception("Failed to send message")
 
     else:
         # Process the response as normal
@@ -77,6 +80,14 @@ def process_whatsapp_message(body):
 
     text = message["text"]["body"]
 
+    key = f"{wa_id}:{text}"
+
+    if key in PROCESSING_MESSAGES:
+        logger.info("Received duplicate message")
+        return
+
+    PROCESSING_MESSAGES.add(key)
+
     response = generate_response(text, wa_id, name)
 
     data = {
@@ -91,3 +102,5 @@ def process_whatsapp_message(body):
     }
 
     send_message(data)
+
+    PROCESSING_MESSAGES.remove(key)

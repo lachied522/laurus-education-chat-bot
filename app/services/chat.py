@@ -113,7 +113,7 @@ def handle_tool_calls(
     return tool_outputs
 
 
-def run_assistant(thread, name):
+def run_assistant(thread_id, name):
     """
     This function runs the assistant, handles any tool calls, and returns the response as a string
     """
@@ -128,35 +128,35 @@ def run_assistant(thread, name):
     # run this assistant and wait until terminal state
     # https://platform.openai.com/docs/assistants/tools/function-calling?example=without-streaming
     run = client.beta.threads.runs.create_and_poll(
-        thread_id=thread.id,
+        thread_id=thread_id,
         assistant_id=assistant.id,
         additional_instructions=additional_instructions,
-        timeout=45,
+        timeout=60,
     )
 
-    if run.status == "failed":
+    if run.status != "completed":
         raise Exception("Assistant run failed")
 
     tool_outputs = handle_tool_calls(run)
 
     if len(tool_outputs) > 0:
         run = client.beta.threads.runs.submit_tool_outputs_and_poll(
-            thread_id=thread.id,
+            thread_id=thread_id,
             run_id=run.id,
             tool_outputs=tool_outputs,
-            timeout=45,
+            timeout=60,
         )
 
-        if run.status == "failed":
+        if run.status != "completed":
             raise Exception("Submitting tool outputs failed")
 
-    messages = client.beta.threads.messages.list(thread_id=thread.id)
+    messages = client.beta.threads.messages.list(thread_id=thread_id)
 
     return messages.data[0].content[0].text.value
 
 
 def generate_response(
-    message: str,
+    query: str,
     _id: str, # either Whatsapp user id, user's ip address, or any other unique id passed through the /chat endpoint
     name: str | None = None
 ):
@@ -180,12 +180,11 @@ def generate_response(
 
             thread = create_and_store_thread(_id)
 
-
     # add user message to thread
     client.beta.threads.messages.create(
         thread_id=thread.id,
         role="user",
-        content=message,
+        content=query,
     )
 
     # If student type has not been determined, send a custom message
@@ -204,15 +203,15 @@ def generate_response(
 
     # Determine student type from response and update database
     if student_type == "pending":
-        student_type = get_student_type_from_user_message(message)
+        student_type = get_student_type_from_user_message(query)
 
         update_thread_in_db(_id, student_type)
 
     try:
         # Run the assistant and get the new message
-        response = run_assistant(thread, name)
+        response = run_assistant(thread.id, name)
 
-        logger.debug("User message: ", message)
+        logger.debug("User message: ", query)
         logger.debug("AI response: ", response)
 
         return response

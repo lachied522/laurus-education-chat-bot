@@ -7,6 +7,8 @@ import logging
 
 import json
 
+from functools import lru_cache
+
 import requests
 
 from openai import OpenAI
@@ -34,10 +36,11 @@ def summarise_search_results(
     system = (
         "You are part of a team of customer service assistants for Laurus Education, a provider of educational programs to Australian and international students. "
         + "You will receive a query from another team member which has been used to search Laurus Education's affiliated web sites for information. "
-        + "Your job is to summarise the raw search results tp answer the incoming query. "
+        + "Your job is to summarise the raw search results to answer the incoming query. "
         + "If the answer to the query is not apparent from the search results you should say so. "
         + "You should also provide a url that the team member should go to for more information."
         + "Do not use markdown, respond with text only."
+        + "Be as concise as possible and use no more than 100 words."
     )
 
     completion = client.chat.completions.create(
@@ -139,18 +142,25 @@ def conduct_search(
     return result["items"][:num]
 
 
+# Apply LRU cache to eliminate duplicate requests
+@lru_cache(maxsize=128)
 def search_tool(
-    query: str
+    query: str,
+    college: str | None = None
 ):
     """
     This is the tool the AI Assistant will use to search webpages to answer user's enquiry
     """
+    if college is not None:
+        if college.lower() not in query.lower():
+            query += f" {college}"
+
     search_results = conduct_search(query)
 
     scraped_results = scrape_webpages(search_results)
 
     summary = summarise_search_results(query, scraped_results)
 
-    logger.debug("Searched: ", query, "\n", "Got: ", summary)
+    logger.info("Searched: ", query, "\n", "Got: ", summary)
 
     return summary

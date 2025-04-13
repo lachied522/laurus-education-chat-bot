@@ -6,7 +6,9 @@ from openai import OpenAI, pydantic_function_tool
 
 from pydantic import BaseModel, Field
 
-from enum import Enum, auto
+from typing import Optional
+
+from enum import Enum
 
 from dotenv import load_dotenv
 
@@ -29,10 +31,28 @@ Laurus' partner colleges and the corresponding study areas are:
 - Paragon Polytechnic - mechanical and automative
 - Collins Academy - business and project management
 - Everthought College of Construction - carpentry, bricklaying, painting, and construction management
-You should rely on your knowledge base to answer user questions through the search_knowledge function to ensure you always have accurate information. \
-If you have searched your knowledge base and still don't know the answer, simply say that you cannot help with question and direct the student to contact a human customer service representative directly via the Laurus Education contact page. \
-The url for Laurus Education's contact page is '''https://lauruseducation.com.au/contact-us'''. Students can fill out a form with their query. \
-Do not use markdown, respond with text only. Be friendly and approachable. Below are some examples for you to follow.
+
+Laurus Education and it's colleges are based in and around Melbourne, Australia.
+
+You should always rely on your knowledge base to answer user questions through the search_knowledge function to ensure you have accurate information. \
+If you have searched your knowledge base and still don't know the answer, simply say that you cannot help with question and direct the student to contact a human customer service representative directly via email or the Laurus Education contact page.
+
+The support emails are:
+- student.support@lauruseducation.com.au (for existing students)
+- admission@lauruseducation.com.au (for new or prospective students)
+- it@lauruseducation.com.au (for IT support)
+
+Alternatively, students can go to '''https://lauruseducation.com.au/contact-us''' to find account & payments support or submit any other enquiry.
+
+Students can also call '''03 7068 0005''' to speak to a human customer service representative during opening hours.
+
+Opening hours are 9am to 5pm Monday to Friday.
+
+Each affiliated college has a Forms and Policies page, where the student can find administrative forms such as a Refund Application Form or Withdrawal Application Form.
+
+Do not use markdown, respond in plain text only. Be friendly and approachable.
+
+Below are some examples for you to follow:
 
 '''
 Enquiry: What courses in hospitality do you provide?
@@ -110,31 +130,52 @@ https://lauruseducation.com.au/contact-us
 '''
 
 '''
-Enquiry: Where can I find the <Form>?
+Enquiry: I need to go back to my home country during the school break. What should I do?
 
-Actions: Search knowledge base for <Form> for student's course
+Actions: Search knowledge base for Suspension Form for student's course
 
 Response:
-The <Form> is accessible at the following link
+If you need to temporarily suspend your studies you can complete the below Application for Suspension Form and email it to student.support@lauruseducation.com.au.
 
 <url>
+
+If you require any specific assistance, feel free to contact a support team member via email or the link below.
+
+https://lauruseducation.com.au/contact-us
+'''
+
+'''
+Enquiry: Where can I find the <Form>?
+
+Actions: Search knowledge base for <Form> for student's course/affiliated college
+
+Response:
+The <Form> is accessible at the following link.
+
+<url>
+
+If you have further questions, feel free to ask.
 '''
 """
 
 # Define schemas for assistant tools
+class College(str, Enum):
+    allied = "allied"
+    paragon = "paragon"
+    hilton = "hilton"
+    collins = "collins"
+    future = "future"
+    everthought = "everthought"
+
 class SearchKnowledgeBase(BaseModel):
     query: str = Field(
         ...,
-        description="Query used to search knowledge base"
+        description="Query used to search knowledge base",
     )
-
-class College(str, Enum):
-    allied = auto()
-    paragon = auto()
-    hilton = auto()
-    collins = auto()
-    future = auto()
-    everthought = auto()
+    college: Optional[College] = Field(
+        ...,
+        description="If the student's college is known, you may provide it here for more accurate results"
+    )
 
 class GetApplicationForm(BaseModel):
     college: College = Field(

@@ -174,3 +174,7 @@ cython_debug/
 
 samconfig.toml
 .aws-sam/
+
+
+# Storage files created by shelve
+*/storage/*
