@@ -161,6 +161,6 @@ def search_tool(
 
     summary = summarise_search_results(query, scraped_results)
 
-    logger.info("Searched: ", query, "\n", "Got: ", summary)
+    logger.info(f"Searched: {query}\nGot: {summary}")
 
     return summary

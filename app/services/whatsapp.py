@@ -67,40 +67,45 @@ def process_whatsapp_message(body):
     """
     Extract fields from request body, generate response, and send reply
     """
-    # see Whatsapp payload structure below
-    # https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
-    wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
-    name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
+    try:
+        # see Whatsapp payload structure below
+        # https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
+        wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
+        name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
 
-    message = body["entry"][0]["changes"][0]["value"]["messages"][0]
+        message = body["entry"][0]["changes"][0]["value"]["messages"][0]
 
-    if message["type"] != "text":
-        logger.info("Non-text message was received")
-        return
+        if message["type"] != "text":
+            logger.info("Non-text message was received")
+            return
 
-    text = message["text"]["body"]
+        text = message["text"]["body"]
 
-    key = f"{wa_id}:{text}"
+        key = f"{wa_id}:{text}"
 
-    if key in PROCESSING_MESSAGES:
-        logger.info("Received duplicate message")
-        return
+        if key in PROCESSING_MESSAGES:
+            logger.info("Received duplicate message")
+            return
 
-    PROCESSING_MESSAGES.add(key)
+        PROCESSING_MESSAGES.add(key)
 
-    response = generate_response(text, wa_id, name)
+        response = generate_response(text, wa_id, name)
 
-    data = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": wa_id,
-        "type": "text",
-        "text": {
-            "preview_url": False,
-            "body": response
-        },
-    }
+        data = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": wa_id,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": response
+            },
+        }
 
-    send_message(data)
+        send_message(data)
 
-    PROCESSING_MESSAGES.remove(key)
+        PROCESSING_MESSAGES.remove(key)
+
+    except Exception as e:
+        logger.error("Error sending message. This is an error with Whatsapp. Details below.")
+        logger.error(e)

@@ -39,7 +39,8 @@ If you have searched your knowledge base and still don't know the answer, simply
 
 The support emails are:
 - student.support@lauruseducation.com.au (for existing students)
-- admission@lauruseducation.com.au (for new or prospective students)
+- admission@lauruseducation.com.au (for new students)
+- marketing@lauruseducation.com.au (for prospective students)
 - it@lauruseducation.com.au (for IT support)
 
 Alternatively, students can go to '''https://lauruseducation.com.au/contact-us''' to find account & payments support or submit any other enquiry.
@@ -87,6 +88,16 @@ The fee for <Course> consists of three parts:
 - Material fee - <Material fee (assuming the course has a material fee)>
 
 For more information, you can download the brochure at <url>.
+'''
+
+'''
+Enquiry: What is the minimum age I have to be to enrol in <Course>?
+
+Actions: Search knowledge base for any course-specific entry requirements
+
+Response:
+Age is typically not a barrier to enrolling in courses with Laurus Education partner colleges. All the courses are open to Learners with a minimum age of 18 years \
+or above at the time of course commencement, as long as you meet the course-specific entry requirements: <Any other entry requirements>.
 '''
 
 '''
@@ -155,6 +166,47 @@ The <Form> is accessible at the following link.
 <url>
 
 If you have further questions, feel free to ask.
+'''
+
+'''
+Enquiry: I need to reopen my assessment
+
+Actions: search knowledge base for instructions on how to reopen assessment
+
+Response:
+Thank you for reaching out. To request assessments to be reopened, please fill in this online form: https://forms.zohopublic.com/lauruseducation/form/AssessmentReopenRequestForm/formperma/E8ERpq-VqjSfxqMWYadE9ki2kgZdPtzKp4wVTNVDZDo
+
+Please Note: Assessments can only be reopened for one week. Your third attempt will incur a fee of $50 per assessment. Missing a deadline counts as an attempt.
+
+If your course is set to or has concluded it may no longer be possible to offer you further attempts. Contact Student Support at student.support@lauruseducation.com.au.
+'''
+
+'''
+Enquiry: I'd like to withdraw from my course
+
+Actions: search knowledge base for Withdrawal form for student's course
+
+Response:
+I'm sorry to hear that you are considering withdrawing from your course.
+
+To withdraw from your course, please complete the Withdrawal Application Form available at the link below.
+
+<withdrawal application form url>
+
+For more information, you can visit the Forms and Policies page at: <forms & policies url>.
+
+If you have any questions or need further assistance, feel free to reach out.
+'''
+
+'''
+Enquiry: When are my classes happening?
+
+Action: search knowledge base for timetable for student's course
+
+Response:
+(If existing student) Timetables are sent via email to your registered account after the orientation session, please contact student support team 
+via email student.support@lauruseducation.com.au.
+(If prospective student) Please send an email to Marketing@lauruseducation.com.au to request a sample timetable for the course of your interest.
 '''
 """
 

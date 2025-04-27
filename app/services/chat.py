@@ -7,7 +7,9 @@ import json
 
 import logging
 
-from openai import OpenAI
+from datetime import datetime
+
+from openai import OpenAI, BadRequestError
 
 from services.storage import get_item_if_exists, store_thread as store_thread_in_db, update_thread as update_thread_in_db
 
@@ -120,10 +122,11 @@ def run_assistant(thread_id, name):
     # retrieve assistant
     assistant = client.beta.assistants.retrieve(OPENAI_ASSISTANT_ID)
 
+    additional_instructions = f"Today's date is {datetime.now().strftime('%A, %#d %B %Y')}."
+
     # add user name to thread if it is provided
-    additional_instructions = None
     if name is not None:
-        additional_instructions = f"You are now having a conversation with {name}"
+        additional_instructions += f" You are now having a conversation with {name}"
 
     # run this assistant and wait until terminal state
     # https://platform.openai.com/docs/assistants/tools/function-calling?example=without-streaming
@@ -133,9 +136,6 @@ def run_assistant(thread_id, name):
         additional_instructions=additional_instructions,
         timeout=60,
     )
-
-    if run.status != "completed":
-        raise Exception("Assistant run failed")
 
     tool_outputs = handle_tool_calls(run)
 
@@ -160,54 +160,54 @@ def generate_response(
     _id: str, # either Whatsapp user id, user's ip address, or any other unique id passed through the /chat endpoint
     name: str | None = None
 ):
-    # Check if there is already a record for the corresponding id
-    record = get_item_if_exists(_id)
+    try:
+        # Check if there is already a record for the corresponding id
+        record = get_item_if_exists(_id)
 
-    # If a thread doesn't exist, create one and store it
-    if record is None:
-        thread = create_and_store_thread(_id)
-        student_type = None
-
-    # Otherwise, retrieve the existing thread
-    else:
-        student_type = record.get("student_type", None)
-
-        try:
-            thread = client.beta.threads.retrieve(record.get("thread_id"))
-
-        except Exception as e:
-            logger.warning(f"Error retreiving thread with id {_id}, creating new thread instead")
-
+        # If a thread doesn't exist, create one and store it
+        if record is None:
             thread = create_and_store_thread(_id)
+            student_type = None
 
-    # add user message to thread
-    client.beta.threads.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content=query,
-    )
+        # Otherwise, retrieve the existing thread
+        else:
+            student_type = record.get("student_type", None)
 
-    # If student type has not been determined, send a custom message
-    if student_type is None:
-        # Update student type to "pending" in database
-        update_thread_in_db(_id, "pending")
+            try:
+                thread = client.beta.threads.retrieve(record.get("thread_id"))
 
-        # Add the bot's response to thread history before returning
+            except Exception as e:
+                logger.warning(f"Error retreiving thread with id {_id}, creating new thread instead")
+
+                thread = create_and_store_thread(_id)
+
+        # add user message to thread
         client.beta.threads.messages.create(
             thread_id=thread.id,
-            role="assistant",
-            content=STUDENT_TYPE_MESSAGE,
+            role="user",
+            content=query,
         )
 
-        return STUDENT_TYPE_MESSAGE
+        # If student type has not been determined, send a custom message
+        if student_type is None:
+            # Update student type to "pending" in database
+            update_thread_in_db(_id, "pending")
 
-    # Determine student type from response and update database
-    if student_type == "pending":
-        student_type = get_student_type_from_user_message(query)
+            # Add the bot's response to thread history before returning
+            client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="assistant",
+                content=STUDENT_TYPE_MESSAGE,
+            )
 
-        update_thread_in_db(_id, student_type)
+            return STUDENT_TYPE_MESSAGE
 
-    try:
+        # Determine student type from response and update database
+        if student_type == "pending":
+            student_type = get_student_type_from_user_message(query)
+
+            update_thread_in_db(_id, student_type)
+
         # Run the assistant and get the new message
         response = run_assistant(thread.id, name)
 
@@ -216,7 +216,13 @@ def generate_response(
 
         return response
 
+    except BadRequestError as e:
+        logger.info("Could not generate response. It is likely an incoming message was received while the chatbot was responding to a previous message. Details below.")
+        logger.info(e)
+
+        return "Please wait while I look into your query."
+
     except Exception as e:
         logger.error(f"Error generating response: {e}")
 
-        return "Something went wrong processing your request, please try again later or contact a human for support"
+        return "Something went wrong processing your request, please try again later or contact a human for support."
