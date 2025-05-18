@@ -25,7 +25,7 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def summarise_search_results(
@@ -144,6 +144,17 @@ def conduct_search(
 
 # Apply LRU cache to eliminate duplicate requests
 @lru_cache(maxsize=128)
+def cached_search(
+    query: str
+):
+    search_results = conduct_search(query)
+
+    scraped_results = scrape_webpages(search_results)
+
+    summary = summarise_search_results(query, scraped_results)
+
+    return search_results, summary
+
 def search_tool(
     query: str,
     college: str | None = None
@@ -155,12 +166,22 @@ def search_tool(
         if college.lower() not in query.lower():
             query += f" {college}"
 
-    search_results = conduct_search(query)
+    hits_before = cached_search.cache_info().hits
 
-    scraped_results = scrape_webpages(search_results)
+    search_results, summary = cached_search(query)
 
-    summary = summarise_search_results(query, scraped_results)
+    hits_after = cached_search.cache_info().hits
 
-    logger.info(f"Searched: {query}\nGot: {summary}")
+    formatted_search_results = json.dumps([
+        {
+            "title": item["title"],
+            "url": item["link"],
+        } for item in search_results
+    ])
+
+    logger.info(f" Searched for: {query}")
+    logger.info(f" Top results: {formatted_search_results}")
+    logger.info(f" Extracted: {summary}")
+    logger.info(f" Cached: {hits_before < hits_after}")
 
     return summary
